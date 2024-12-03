@@ -16,6 +16,33 @@ public class KafkaConsumerService {
     @KafkaListener(topics = "inventory-updates", groupId = "inventory_group")
     public void consume(String message) {
         System.out.println("Consumed message: " + message);
-        // Add logic to parse and update inventory in the database
+
+        String[] parts = message.split(",");
+        if (parts.length == 2) {
+            String productName = parts[0].trim();
+            int quantity;
+
+            try {
+                quantity = Integer.parseInt(parts[1].trim());
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid quantity format in message: " + message);
+                return;
+            }
+
+            // Check if the product already exists in the database
+            Inventory inventory = inventoryRepository.findAll().stream()
+                    .filter(item -> item.getProductName().equalsIgnoreCase(productName))
+                    .findFirst()
+                    .orElse(new Inventory(null, productName, 0));
+
+            // Update the quantity
+            inventory.setQuantity(inventory.getQuantity() + quantity);
+
+            // Save the updated inventory
+            inventoryRepository.save(inventory);
+            System.out.println("Updated inventory: " + inventory);
+        } else {
+            System.err.println("Invalid message format: " + message);
+        }
     }
 }
